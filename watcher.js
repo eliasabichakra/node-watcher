@@ -1,4 +1,7 @@
 const { MongoClient } = require('mongodb');
+const { exec } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 async function watchReleases() {
   console.log('🔄 Connecting to MongoDB Atlas...');
@@ -15,16 +18,43 @@ async function watchReleases() {
 
     const changeStream = collection.watch();
 
-    changeStream.on('change', (change) => {
-      if (change.operationType === 'insert') {
-        const tag = change.fullDocument.tag;
-        console.log(`🚀 New tag detected (insert): ${tag}`);
-      }
+    changeStream.on('change', async (change) => {
+      if (change.operationType === 'insert' || change.operationType === 'update') {
+        const tag = change.operationType === 'insert'
+          ? change.fullDocument.tag
+          : change.updateDescription.updatedFields.tag;
 
-      if (change.operationType === 'update') {
-        const updatedFields = change.updateDescription.updatedFields;
-        if (updatedFields.tag) {
-          console.log(`🔁 Tag updated to: ${updatedFields.tag}`);
+        if (tag) {
+          console.log(`📦 New tag detected: ${tag}`);
+
+          // Step 1: Remove old wrapper.jar if exists
+          const jarPath = path.join(__dirname, 'wrapper.jar');
+          if (fs.existsSync(jarPath)) {
+            fs.unlinkSync(jarPath);
+            console.log('🗑️ Removed old wrapper.jar');
+          }
+
+          // Step 2: Download new wrapper.jar
+          const downloadCommand = `wget "https://github.com/eliasabichakra/jar-release/releases/download/${tag}/wrapper.jar" -O ${jarPath}`;
+          exec(downloadCommand, (err, stdout, stderr) => {
+            if (err) {
+              console.error('❌ Error downloading wrapper.jar:', stderr);
+              return;
+            }
+
+            console.log('⬇️ Downloaded new wrapper.jar');
+
+            // Step 3: Run the new jar
+            const runCommand = `nohup java --enable-native-access=ALL-UNNAMED -jar ${jarPath} > ${path.join(__dirname, 'wrapper.log')} 2>&1 &`;
+            exec(runCommand, (err, stdout, stderr) => {
+              if (err) {
+                console.error('❌ Error running wrapper.jar:', stderr);
+                return;
+              }
+
+              console.log('🚀 New wrapper.jar started successfully.');
+            });
+          });
         }
       }
     });
