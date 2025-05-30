@@ -33,42 +33,52 @@ async function watchReleases() {
                     const logPath = path.join(__dirname, '..', `wrapper-${tag}.log`);
                     const appDir = path.join(__dirname, '..');
 
-                    // Step 0: Kill existing Java process
-                    console.log(`🛑 Stopping any running Java processes...`);
+                    // Step 0: Kill running Java wrapper process
+                    console.log(`🛑 Stopping any running Java wrapper processes...`);
                     exec(`pkill -f "java.*wrapper"`, (killErr) => {
                         if (killErr) {
-                            console.warn('⚠️ No existing Java process was found or error stopping it.');
+                            console.warn('⚠️ No Java wrapper process found or error killing it.');
                         } else {
-                            console.log(`✅ Stopped existing Java process.`);
+                            console.log('✅ Java wrapper process stopped.');
                         }
 
-                        // Step 1: Clean up old jar files (optional)
+                        // Step 1: Remove old JARs and logs except the new tag ones
                         fs.readdirSync(appDir).forEach(file => {
-                            if (file.startsWith('wrapper-') && file !== jarName) {
-                                fs.unlinkSync(path.join(appDir, file));
-                                console.log(`🗑️ Removed old JAR file: ${file}`);
+                            if (
+                                (file.startsWith('wrapper') && file.endsWith('.jar') && file !== jarName) 
+                            ) {
+                                const filePath = path.join(appDir, file);
+                                fs.unlinkSync(filePath);
+                                console.log(`🗑️ Removed old file: ${file}`);
                             }
                         });
 
                         // Step 2: Download the new jar
                         const downloadCommand = `wget "https://github.com/eliasabichakra/jar-release/releases/download/${tag}/wrapper.jar" -O ${jarPath}`;
-                        exec(downloadCommand, (err, stdout, stderr) => {
-                            if (err) {
-                                console.error('❌ Error downloading wrapper.jar:', stderr);
+                        console.log(`⬇️ Downloading new wrapper from GitHub...`);
+                        exec(downloadCommand, (downloadErr, stdout, stderr) => {
+                            if (downloadErr) {
+                                console.error('❌ Error downloading new wrapper:', stderr);
                                 return;
                             }
 
-                            console.log(`⬇️ Downloaded new wrapper: ${jarName}`);
+                            console.log(`✅ Downloaded new wrapper: ${jarName}`);
 
-                            // Step 3: Run the new jar
+                            // Step 3: Ensure config.json exists
+                            const configPath = path.join(__dirname, '..', 'config.json');
+                            if (!fs.existsSync(configPath)) {
+                                console.error('❌ config.json not found. Aborting.');
+                                return;
+                            }
+
+                            // Step 4: Run the new jar with proper logging
                             const runCommand = `nohup java --enable-native-access=ALL-UNNAMED -jar ${jarPath} > ${logPath} 2>&1 &`;
-                            exec(runCommand, (err, stdout, stderr) => {
-                                if (err) {
-                                    console.error('❌ Error running wrapper.jar:', stderr);
-                                    return;
+                            exec(runCommand, (runErr) => {
+                                if (runErr) {
+                                    console.error('❌ Error starting new wrapper:', runErr);
+                                } else {
+                                    console.log(`🚀 Started new wrapper: ${jarName}, logging to ${logPath}`);
                                 }
-
-                                console.log(`🚀 New wrapper.jar (${jarName}) started successfully.`);
                             });
                         });
                     });
