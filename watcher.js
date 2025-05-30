@@ -2,11 +2,13 @@ const { MongoClient } = require('mongodb');
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+require('dotenv').config(); // Load variables from .env
+
 
 async function watchReleases() {
     console.log('🔄 Connecting to MongoDB Atlas...');
 
-    const uri = 'mongodb+srv://eliasabichacra89:LtpkfZOvyF4tdqWS@tag-version.im7c9hx.mongodb.net/?retryWrites=true&w=majority&appName=tag-version';
+    const uri = process.env.MONGO_URI;
     const client = new MongoClient(uri);
 
     try {
