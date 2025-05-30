@@ -72,7 +72,7 @@ async function watchReleases() {
                             }
 
                             // Step 4: Run the new jar with proper logging
-                            const runCommand = `nohup java --enable-native-access=ALL-UNNAMED -jar ${jarPath} > ${logPath} 2>&1 &`;
+                            const runCommand = `cd ${appDir} && nohup java --enable-native-access=ALL-UNNAMED -jar ${jarName} > ${logPath} 2>&1 &`;
                             exec(runCommand, (runErr) => {
                                 if (runErr) {
                                     console.error('❌ Error starting new wrapper:', runErr);
