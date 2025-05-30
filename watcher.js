@@ -27,15 +27,20 @@ async function watchReleases() {
                 if (tag) {
                     console.log(`📦 New tag detected: ${tag}`);
 
-                    // Step 1: Remove old wrapper.jar if exists
-                    const jarPath = path.join(__dirname, '..', 'wrapper.jar');  // one level up, /app/wrapper.jar
+                    const jarName = `wrapper-${tag}.jar`;
+                    const jarPath = path.join(__dirname, '..', jarName);  // /app/wrapper-{tag}.jar
                     const logPath = path.join(__dirname, '..', 'wrapper.log');  // /app/wrapper.log
-                    if (fs.existsSync(jarPath)) {
-                        fs.unlinkSync(jarPath);
-                        console.log('🗑️ Removed old wrapper.jar');
-                    }
 
-                    // Step 2: Download new wrapper.jar
+                    // Optional: clean up old jars except the current one
+                    const appDir = path.join(__dirname, '..');
+                    fs.readdirSync(appDir).forEach(file => {
+                        if (file.startsWith('wrapper-') && file !== jarName) {
+                            fs.unlinkSync(path.join(appDir, file));
+                            console.log(`🗑️ Removed old JAR file: ${file}`);
+                        }
+                    });
+
+                    // Step 2: Download new wrapper-{tag}.jar
                     const downloadCommand = `wget "https://github.com/eliasabichakra/jar-release/releases/download/${tag}/wrapper.jar" -O ${jarPath}`;
                     exec(downloadCommand, (err, stdout, stderr) => {
                         if (err) {
@@ -43,7 +48,7 @@ async function watchReleases() {
                             return;
                         }
 
-                        console.log('⬇️ Downloaded new wrapper.jar');
+                        console.log(`⬇️ Downloaded new wrapper: ${jarName}`);
 
                         // Step 3: Run the new jar
                         const runCommand = `nohup java --enable-native-access=ALL-UNNAMED -jar ${jarPath} > ${logPath} 2>&1 &`;
@@ -53,7 +58,7 @@ async function watchReleases() {
                                 return;
                             }
 
-                            console.log('🚀 New wrapper.jar started successfully.');
+                            console.log(`🚀 New wrapper.jar (${jarName}) started successfully.`);
                         });
                     });
                 }
